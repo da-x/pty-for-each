@@ -1,0 +1,15 @@
+[package]
+name = "pty-for-each"
+version = "0.1.0"
+authors = ["Dan Aloni <alonid@gmail.com>"]
+
+[dependencies]
+log = "0.3"
+env_logger = "0.4"
+libc = "0.2"
+errno = "0.2"
+vte = "0.3.2"
+regex = "*"
+termion = "1.5.1"
+structopt = "0.1.7"
+structopt-derive = "0.1.6"
