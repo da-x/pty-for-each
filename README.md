@@ -12,7 +12,7 @@ output in a situation where a terminal is absent.
 For example, invoking ssh to run `wget` on two hosts in parallel
 
 ```
-$ pfe key host -- mars centos-7 %% ssh  %host 'wget www.cnn.com -O /dev/null'
+$ pty-for-each key host -- mars centos-7 %% ssh  %host 'wget www.cnn.com -O /dev/null'
 centos-7: --2018-01-26 08:35:30--  http://www.cnn.com/
 centos-7: Resolving www.cnn.com (www.cnn.com)... 151.101.65.67, 151.101.129.67, 151.101.193.67, ...
 centos-7: Connecting to www.cnn.com (www.cnn.com)|151.101.65.67|:80... connected.
