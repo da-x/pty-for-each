@@ -7,13 +7,14 @@ extern crate regex;
 #[macro_use]
 extern crate structopt_derive;
 
-use std::io::BufReader;
-use std::io::BufRead;
-use structopt::StructOpt;
-use structopt::clap::AppSettings;
+use std::io::{BufReader, BufRead, Write};
+use std::io;
 use std::thread;
 use std::collections::HashMap;
 use std::sync::mpsc::{sync_channel, Receiver};
+use std::process::ExitStatus;
+use structopt::StructOpt;
+use structopt::clap::AppSettings;
 use regex::Regex;
 
 /// Process ID of child process
@@ -79,6 +80,12 @@ enum Message {
 struct Subprogram {
     pty: tty::Pty,
     prefix: String,
+}
+
+impl Subprogram {
+    fn wait(&mut self) -> io::Result<ExitStatus> {
+        self.pty.child.wait()
+    }
 }
 
 struct Interpolator(String, Regex, Regex);
@@ -155,7 +162,7 @@ fn make_programs(opt: &Opt) -> HashMap<u32, Subprogram> {
                 Err(_) => (25, columns),
             };
 
-            let prefix_delim = if prefix.len() > 0 { 
+            let prefix_delim = if prefix.len() > 0 {
                 format!("{}: ", prefix)
             } else {
                 prefix.clone()
@@ -211,24 +218,73 @@ fn handle_programs(programs: &HashMap<u32, Subprogram>) -> (ThreadsMap, Receiver
     (threads, receiver)
 }
 
+fn print(text: &String) -> bool
+{
+    // print!() macro panics on EPIPE, this is the alternative
+    //
+    // TODO: more print invocations require replacements.
+    match io::stdout().write(text.as_bytes()) {
+        Err(_) => false,
+        _ => true,
+    }
+}
+
 fn handle_mainloop(mut programs: HashMap<u32, Subprogram>,
                    mut threads: ThreadsMap,
                    receiver: Receiver<Message>)
 {
+    let mut stdout_gone = false;
+    let mut code : i32 = 0;
+
     while programs.len() > 0 {
         let msg = receiver.recv().unwrap();
         match msg {
             Message::Line(key, line) => {
-                let program = programs.get(&key).unwrap();
-                print!("{}{}", program.prefix, line);
+                if !stdout_gone {
+                    let program = programs.get(&key).unwrap();
+                    if !print(&format!("{}{}", program.prefix, line)) {
+                        stdout_gone = true;
+                    }
+                }
             }
             Message::Terminated(key) => {
-                programs.remove(&key);
+                let mut program = programs.remove(&key).unwrap();
                 let thread = threads.remove(&key).unwrap();
                 thread.join().expect("join error");
+
+                loop {
+                    match program.wait() {
+                        Err(e) => {
+                            if e.kind() == io::ErrorKind::WouldBlock {
+                                continue;
+                            }
+                            panic!("program wait returned: {}", e);
+                        }
+                        Ok(res) => {
+                            /*
+                             * One of the subprogram's error is enough for us
+                             * to change our own exit status to an error. However,
+                             * we cannot reliably forward errors as they are.
+                             */
+                            if !res.success() {
+                                if code == 0 {
+                                    match res.code() {
+                                        Some(_) => code = 0xff,
+                                        None => code = 0xfe,
+                                    }
+                                } else {
+                                    code = 0xfc;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
             }
         }
     }
+
+    std::process::exit(code);
 }
 
 fn main() {

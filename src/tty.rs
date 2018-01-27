@@ -18,21 +18,8 @@ use std::fs::File;
 use std::os::unix::io::FromRawFd;
 use std::os::unix::process::CommandExt;
 use std::ptr;
-use std::process::{Command, Stdio};
-use libc::{self, winsize, c_int, WNOHANG, SIGCHLD, TIOCSCTTY};
-
-extern "C" fn sigchld(_a: c_int) {
-    let mut status: c_int = 0;
-    unsafe {
-        loop {
-            let p = libc::waitpid(-1, &mut status, WNOHANG);
-            if p <= 0 {
-                // die!("Waiting for pid {} failed: {}\n", PID, errno());
-                break;
-            }
-        }
-    }
-}
+use std::process::{Command, Stdio, Child};
+use libc::{self, winsize, c_int, TIOCSCTTY};
 
 /// Get the current value of errno
 fn errno() -> c_int {
@@ -113,6 +100,8 @@ pub fn new(command: &Vec<String>, (rows, cols): (u16, u16)) -> Result<Pty, Parse
         ws_ypixel: 0,
     };
 
+    unsafe {libc::signal(libc::SIGPIPE, libc::SIG_IGN); };
+
     let (master, slave) = openpty(win.ws_row as _, win.ws_col as _);
 
     let mut builder = Command::new(&command[0]);
@@ -157,12 +146,8 @@ pub fn new(command: &Vec<String>, (rows, cols): (u16, u16)) -> Result<Pty, Parse
     });
 
     match builder.spawn() {
-        Ok(_) => {
-            unsafe {
-                // Handle SIGCHLD
-                libc::signal(SIGCHLD, sigchld as _);
-            }
-            Ok (Pty { fd: master })
+        Ok(child) => {
+            Ok (Pty { fd: master, child })
         },
         Err(err) => {
             die!("Command::spawn() failed: {}", err);
@@ -170,9 +155,9 @@ pub fn new(command: &Vec<String>, (rows, cols): (u16, u16)) -> Result<Pty, Parse
     }
 }
 
-#[derive(Copy, Clone)]
 pub struct Pty {
     fd: c_int,
+    pub child: Child,
 }
 
 impl Pty {
