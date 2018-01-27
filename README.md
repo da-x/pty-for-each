@@ -66,5 +66,5 @@ all sub-terminals.
 ### Installation
 
 Currently `pty-for-each` can be built from sources using `cargo` from the installable
-[Rust][https://www.rust-lang.org/en-US/install.html] compiler toolchain. After installing
+[Rust](https://www.rust-lang.org/en-US/install.html) compiler toolchain. After installing
 the toolchain, simply run `cargo install` in the repository directory.
