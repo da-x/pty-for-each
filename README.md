@@ -3,8 +3,8 @@ pty-for-each
 
 `pty-for-each` is a line-oriented TTY multiplexer, that allows spawning several
 processes, collecting their emitted terminal lines and print them interleaved
-with a prefix. One variable can be provided as from a list of known values in
-order to provide variation in execution.
+with a prefix. One variable can be provided as a form of a list of known values
+in order to provide variation in execution.
 
 It also allows running a single process under a terminal just to record its
 output in a situation where a terminal is absent.
