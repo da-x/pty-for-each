@@ -13,3 +13,6 @@ regex = "*"
 termion = "1.5.1"
 structopt = "0.1.7"
 structopt-derive = "0.1.6"
+
+[replace]
+"clap:2.29.2" = { git = 'https://github.com/da-x/clap-rs', branch = "nesting-of-dash-dash"  }
